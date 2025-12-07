@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JADEOKANA // NEW TASTE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rubik+Glitch&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --acid-blue: #2a1bce;
+            --acid-light: #5d4eff;
+            --grunge-white: #f0f0f0;
+            --grunge-black: #050505;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--acid-blue);
+            font-family: 'Space Mono', monospace;
+            color: var(--grunge-white);
+            cursor: crosshair;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none; /* Let clicks pass to canvas/buttons */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .interactive-btn {
+            pointer-events: auto;
+            font-family: 'Rubik Glitch', system-ui;
+            letter-spacing: 2px;
+            transition: all 0.2s ease;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        .interactive-btn:hover {
+            transform: scale(1.1) rotate(-2deg);
+            color: #fff;
+            text-shadow: 4px 4px 0px #000;
+        }
+
+        .interactive-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Glitch Animation for Text */
+        @keyframes noise-anim {
+            0% { clip-path: inset(40% 0 61% 0); }
+            20% { clip-path: inset(92% 0 1% 0); }
+            40% { clip-path: inset(43% 0 1% 0); }
+            60% { clip-path: inset(25% 0 58% 0); }
+            80% { clip-path: inset(54% 0 7% 0); }
+            100% { clip-path: inset(58% 0 43% 0); }
+        }
+
+        .glitch-text {
+            position: relative;
+        }
+        
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--acid-blue);
+        }
+
+        .glitch-text::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00c1;
+            animation: noise-anim 2s infinite linear alternate-reverse;
+        }
+
+        .glitch-text::after {
+            left: -2px;
+            text-shadow: -1px 0 #00fff9;
+            animation: noise-anim 3s infinite linear alternate-reverse;
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Texture Overlay */
+        .grain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.15;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' opacity='0.5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Grain Overlay -->
+    <div class="grain"></div>
+
+    <!-- Canvas for Physics & Game -->
+    <canvas id="world"></canvas>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        
+        <!-- HOME PAGE -->
+        <div id="home-page" class="flex flex-col items-center justify-center w-full h-full transition-opacity duration-500">
+            <!-- Central Rotator Container -->
+            <div class="relative w-[300px] h-[300px] md:w-[500px] md:h-[500px] flex items-center justify-center mb-8">
+                <!-- Canvas for Elliptical Text will be drawn here by JS, but we use a DOM overlay for the button -->
+                
+                <div class="absolute inset-0 flex items-center justify-center z-20">
+                     <button id="start-btn" class="interactive-btn text-4xl md:text-6xl text-white bg-black px-8 py-4 border-2 border-white transform -rotate-3 hover:rotate-0">
+                        ENTER
+                    </button>
+                </div>
+            </div>
+
+            <div class="absolute bottom-10 left-0 w-full text-center px-4">
+                <p class="font-['Permanent_Marker'] text-sm md:text-lg opacity-70 tracking-widest animate-pulse">
+                    MOVE CURSOR TO GENERATE WIND
+                </p>
+                <p class="text-[10px] mt-2 font-mono opacity-50">
+                    OPTIMIZED FOR 144HZ // PHYSICS ENABLED
+                </p>
+            </div>
+            
+            <!-- Deco Elements -->
+            <div class="absolute top-10 right-10 font-['Rubik_Glitch'] text-2xl rotate-12 opacity-80 mix-blend-overlay">WHY IS EVERYTHING SO...</div>
+            <div class="absolute bottom-20 left-10 font-['Permanent_Marker'] text-xl -rotate-6 opacity-60">F*CK LAWS</div>
+        </div>
+
+        <!-- GAME PAGE -->
+        <div id="game-page" class="hidden flex-col items-center justify-between w-full h-full py-10">
+            <div class="flex justify-between w-full px-8 md:px-20 pt-4">
+                <div class="text-left">
+                    <p class="text-xs font-mono opacity-60">SCORE</p>
+                    <h2 id="score-display" class="text-4xl md:text-6xl font-['Rubik_Glitch']">000</h2>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-mono opacity-60">STATUS</p>
+                    <h2 id="status-display" class="text-2xl md:text-3xl font-['Permanent_Marker'] text-green-400">ALIVE</h2>
+                </div>
+            </div>
+
+            <div id="game-over-modal" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
+                <h1 class="text-6xl md:text-8xl font-['Rubik_Glitch'] text-red-500 mb-4 glitch-text" data-text="BUSTED">BUSTED</h1>
+                <p class="font-mono mb-8 text-xl">FINAL SCORE: <span id="final-score">0</span></p>
+                <button id="restart-btn" class="interactive-btn text-3xl bg-white text-blue-900 px-8 py-3 border-4 border-blue-900">
+                    TRY AGAIN
+                </button>
+                <button id="home-btn" class="interactive-btn text-xl mt-4 text-white underline decoration-wavy">
+                    RETURN HOME
+                </button>
+            </div>
+            
+            <div class="absolute bottom-5 font-mono text-[10px] opacity-40">
+                DRAG TO SURVIVE // AVOID THE COPPERS
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * ENGINE SETUP & UTILS
+         * Optimized for High Refresh Rate (90Hz/120Hz/144Hz)
+         */
+        const canvas = document.getElementById('world');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+        let width, height;
+        let dpr = window.devicePixelRatio || 1;
+
+        // State
+        let currentPage = 'home'; // 'home' | 'game'
+        let frameId;
+        let lastTime = 0;
+        
+        // Physics Globals
+        const wind = { x: 0, y: 0 };
+        const mouse = { x: 0, y: 0, px: 0, py: 0, active: false };
+        
+        // Game State
+        const game = {
+            active: false,
+            score: 0,
+            player: { x: 0, y: 0, radius: 15, speed: 0 },
+            enemies: [],
+            pickups: [],
+            difficulty: 1,
+            timeElapsed: 0
+        };
+
+        // Resize Handling
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Center player on resize if game not active
+            if (!game.active) {
+                game.player.x = width / 2;
+                game.player.y = height / 2;
+            }
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Mouse/Touch Input
+        function updateInput(x, y) {
+            mouse.px = mouse.x;
+            mouse.py = mouse.y;
+            mouse.x = x;
+            mouse.y = y;
+            mouse.active = true;
+
+            // Calculate wind based on mouse velocity
+            const dx = mouse.x - mouse.px;
+            const dy = mouse.y - mouse.py;
+            
+            // Wind impulse
+            wind.x += dx * 0.05;
+            wind.y += dy * 0.05;
+
+            // Update player target in game mode
+            if (game.active) {
+                // Direct follow with lerp in update loop
+            }
+        }
+
+        window.addEventListener('mousemove', e => updateInput(e.clientX, e.clientY));
+        window.addEventListener('touchmove', e => {
+            updateInput(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        /**
+         * ASSETS & OBJECTS
+         */
+        
+        // "Leaves" / Debris System (The grunge elements)
+        class Debris {
+            constructor() {
+                this.init();
+            }
+
+            init() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 20 + 5;
+                this.type = Math.random() > 0.5 ? 'leaf' : 'star'; // leaf = scratchy shard, star = doodle
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rSpeed = (Math.random() - 0.5) * 0.1;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.friction = 0.96;
+                this.color = Math.random() > 0.8 ? '#ffffff' : '#000000'; // High contrast
+            }
+
+            update(dt) {
+                // Apply wind
+                this.vx += wind.x * 0.01;
+                this.vy += wind.y * 0.01;
+                
+                // Natural movement
+                this.vx += (Math.random() - 0.5) * 0.1;
+                this.vy += (Math.random() - 0.5) * 0.1;
+
+                // Move
+                this.x += this.vx * dt * 60; // Normalize to 60fps
+                this.y += this.vy * dt * 60;
+                this.rotation += this.rSpeed * dt * 60;
+
+                // Friction
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                // Wrap around
+                if (this.x > width + 50) this.x = -50;
+                if (this.x < -50) this.x = width + 50;
+                if (this.y > height + 50) this.y = -50;
+                if (this.y < -50) this.y = height + 50;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.fillStyle = this.color;
+
+                if (this.type === 'leaf') {
+                    // Draw shard/thorn shape
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.size);
+                    ctx.quadraticCurveTo(this.size/2, 0, 0, this.size);
+                    ctx.quadraticCurveTo(-this.size/2, 0, 0, -this.size);
+                    ctx.stroke();
+                    if (this.color === '#000000') ctx.fill(); // Fill black ones
+                } else {
+                    // Draw crude star
+                    ctx.beginPath();
+                    for(let i=0; i<5; i++) {
+                        ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*this.size, 
+                                   -Math.sin((18+i*72)/180*Math.PI)*this.size);
+                        ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*this.size/2, 
+                                   -Math.sin((54+i*72)/180*Math.PI)*this.size/2);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        const debrisSystem = Array.from({ length: 50 }, () => new Debris());
+
+        // Home Screen Text Ring
+        class TextRing {
+            constructor(text) {
+                this.text = text;
+                this.angle = 0;
+                this.scale = 0;
+                this.targetScale = 1;
+            }
+
+            update(dt) {
+                this.angle += 0.5 * dt;
+                // Intro animation (appearing from middle)
+                this.scale += (this.targetScale - this.scale) * 3 * dt;
+            }
+
+            draw(ctx) {
+                const cx = width / 2;
+                const cy = height / 2;
+                const radius = 140; 
+                
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.scale(this.scale, this.scale);
+                ctx.rotate(this.angle);
+
+                ctx.font = 'bold 24px "Rubik Glitch"';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Draw text along ellipse/circle
+                const charArr = this.text.split('');
+                const step = (Math.PI * 2) / charArr.length;
+
+                charArr.forEach((char, i) => {
+                    ctx.save();
+                    const theta = i * step;
+                    const x = Math.cos(theta) * radius * 1.5; // Elliptical (wider X)
+                    const y = Math.sin(theta) * radius;
+                    
+                    ctx.translate(x, y);
+                    ctx.rotate(theta + Math.PI / 2); // Rotate character to face center
+                    ctx.fillText(char, 0, 0);
+                    ctx.restore();
+                });
+
+                // Draw inner decorative circle
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, radius * 1.5 - 20, radius - 20, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        const homeText = new TextRing("THE AMAZING NEW TASTE  •  JADEOKANA  •  ");
+
+        /**
+         * GAME LOGIC
+         */
+
+        class Enemy {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) { this.x = Math.random() * width; this.y = -50; }
+                if (side === 1) { this.x = width + 50; this.y = Math.random() * height; }
+                if (side === 2) { this.x = Math.random() * width; this.y = height + 50; }
+                if (side === 3) { this.x = -50; this.y = Math.random() * height; }
+                
+                const angle = Math.atan2(game.player.y - this.y, game.player.x - this.x);
+                const speed = (Math.random() * 200 + 100) * game.difficulty;
+                
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = 20 + Math.random() * 30;
+                this.angle = 0;
+                this.spin = (Math.random() - 0.5) * 5;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.angle += this.spin * dt;
+                
+                // Bounds check
+                if (this.x < -100 || this.x > width + 100 || this.y < -100 || this.y > height + 100) {
+                    this.reset();
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                // Draw "Cop Car" / Siren style box
+                ctx.fillStyle = '#ff0000';
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                
+                // Text texture
+                ctx.fillStyle = 'white';
+                ctx.font = '10px monospace';
+                ctx.fillText('LAW', -10, 4);
+                
+                ctx.restore();
+            }
+        }
+
+        class Pickup {
+            constructor() {
+                this.active = false;
+                this.x = 0;
+                this.y = 0;
+                this.size = 15;
+            }
+
+            spawn() {
+                this.x = Math.random() * (width - 100) + 50;
+                this.y = Math.random() * (height - 100) + 50;
+                this.active = true;
+            }
+
+            draw(ctx) {
+                if (!this.active) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.shadowColor = '#00ff00';
+                ctx.shadowBlur = 15;
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size, 0, Math.PI*2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('$', 0, 1);
+                
+                ctx.restore();
+            }
+        }
+
+        function startGame() {
+            currentPage = 'game';
+            
+            // UI Switch
+            document.getElementById('home-page').classList.add('hidden');
+            document.getElementById('game-page').classList.remove('hidden');
+            document.getElementById('game-page').classList.add('flex');
+            document.getElementById('game-over-modal').classList.add('hidden');
+
+            // Reset Game State
+            game.active = true;
+            game.score = 0;
+            game.difficulty = 1;
+            game.timeElapsed = 0;
+            game.player.x = width / 2;
+            game.player.y = height / 2;
+            
+            // Entities
+            game.enemies = Array.from({length: 5}, () => new Enemy());
+            game.pickups = Array.from({length: 3}, () => new Pickup());
+            game.pickups.forEach(p => p.spawn());
+
+            updateScoreUI();
+        }
+
+        function gameOver() {
+            game.active = false;
+            document.getElementById('game-over-modal').classList.remove('hidden');
+            document.getElementById('game-over-modal').classList.add('flex');
+            document.getElementById('final-score').innerText = game.score;
+            document.getElementById('status-display').innerText = "BUSTED";
+            document.getElementById('status-display').classList.replace('text-green-400', 'text-red-500');
+        }
+
+        function returnHome() {
+            currentPage = 'home';
+            document.getElementById('game-page').classList.add('hidden');
+            document.getElementById('game-page').classList.remove('flex');
+            document.getElementById('home-page').classList.remove('hidden');
+            homeText.scale = 0; // Reset animation
+        }
+
+        function updateScoreUI() {
+            document.getElementById('score-display').innerText = game.score.toString().padStart(3, '0');
+        }
+
+        /**
+         * MAIN RENDER LOOP
+         */
+        function loop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // Cap dt
+            lastTime = timestamp;
+
+            // Clear Background (Deep Blue from Image)
+            ctx.fillStyle = '#2a1bce';
+            ctx.fillRect(0, 0, width, height);
+
+            // --- DECORATIVE LAYER (Always visible) ---
+            
+            // Decaying wind
+            wind.x *= 0.95;
+            wind.y *= 0.95;
+
+            // Draw Physics Particles (Leaves/Debris)
+            debrisSystem.forEach(d => {
+                d.update(dt);
+                d.draw(ctx);
+            });
+
+            // --- PAGE SPECIFIC ---
+
+            if (currentPage === 'home') {
+                homeText.update(dt);
+                homeText.draw(ctx);
+                
+                // Draw subtle doodle lines in background
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, height);
+                ctx.bezierCurveTo(width/3, height/2, width/2, height, width, 0);
+                ctx.stroke();
+
+            } else if (currentPage === 'game') {
+                
+                if (game.active) {
+                    game.timeElapsed += dt;
+                    game.difficulty = 1 + (game.timeElapsed / 20); // Get harder over time
+
+                    // Player Movement (Lerp to mouse)
+                    if (mouse.active) {
+                        const dx = mouse.x - game.player.x;
+                        const dy = mouse.y - game.player.y;
+                        game.player.x += dx * 10 * dt;
+                        game.player.y += dy * 10 * dt;
+                    }
+
+                    // Draw Player
+                    ctx.save();
+                    ctx.translate(game.player.x, game.player.y);
+                    // Glitch effect on player
+                    ctx.fillStyle = Math.random() > 0.9 ? '#ff00ff' : '#ffffff';
+                    ctx.shadowColor = '#ffffff';
+                    ctx.shadowBlur = 20;
+                    // Draw a star shape for player
+                    ctx.beginPath();
+                    const pSize = 15;
+                    ctx.moveTo(0, -pSize);
+                    ctx.lineTo(pSize/3, -pSize/3);
+                    ctx.lineTo(pSize, 0);
+                    ctx.lineTo(pSize/3, pSize/3);
+                    ctx.lineTo(0, pSize);
+                    ctx.lineTo(-pSize/3, pSize/3);
+                    ctx.lineTo(-pSize, 0);
+                    ctx.lineTo(-pSize/3, -pSize/3);
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Enemies
+                    game.enemies.forEach(enemy => {
+                        enemy.update(dt);
+                        enemy.draw(ctx);
+
+                        // Collision
+                        const dist = Math.hypot(game.player.x - enemy.x, game.player.y - enemy.y);
+                        if (dist < game.player.radius + enemy.size/2) {
+                            gameOver();
+                        }
+                    });
+
+                    // Pickups
+                    game.pickups.forEach(pickup => {
+                        if (pickup.active) {
+                            pickup.draw(ctx);
+                            const dist = Math.hypot(game.player.x - pickup.x, game.player.y - pickup.y);
+                            if (dist < game.player.radius + pickup.size) {
+                                pickup.active = false;
+                                game.score += 100;
+                                updateScoreUI();
+                                setTimeout(() => pickup.spawn(), 2000); // Respawn
+                                
+                                // Particle explosion effect (simple flash)
+                                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                                ctx.fillRect(0, 0, width, height);
+                            }
+                        }
+                    });
+                }
+            }
+
+            frameId = requestAnimationFrame(loop);
+        }
+
+        // Start Loop
+        game.player.x = window.innerWidth / 2;
+        game.player.y = window.innerHeight / 2;
+        requestAnimationFrame(loop);
+
+        // UI Event Listeners
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('home-btn').addEventListener('click', returnHome);
+
+    </script>
+</body>
+</html>
